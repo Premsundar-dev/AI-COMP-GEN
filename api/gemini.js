@@ -1,53 +1,35 @@
 // api/gemini.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const config = {
-  runtime: "edge",
-};
-
-export default async function handler(req) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   try {
-    const { prompt, framework } = await req.json();
+    const { prompt, framework } = req.body || {};
 
     if (!prompt) {
-      return new Response(JSON.stringify({ error: "Prompt is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return res.status(400).json({ error: "Prompt is required" });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "Missing Gemini API key" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+      return res.status(500).json({ error: "Missing Gemini API key" });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const result = await model.generateContent(`
-      You are a frontend developer. Generate a ${framework} component for: ${prompt}.
-      Return only clean, formatted code without explanations.
+      Generate a ${framework} component for: ${prompt}.
+      Return clean, formatted code only.
     `);
 
     const code = result.response.text();
-    return new Response(JSON.stringify({ code }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(200).json({ code });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    console.error("Gemini API Error:", error);
+    return res.status(500).json({ error: error.message });
   }
 }
